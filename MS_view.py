@@ -271,7 +271,24 @@ if df_raw is not None:
                                **{'background-color': '#F0F0F0', 'color': 'black'})\
                 .set_properties(subset=['総合'], **{'border-left': '3px solid #555', 'font-weight': 'bold'})
             
-            st.dataframe(styled_df, height=750, use_container_width=True, hide_index=True)
+            # 各列の幅を個別に指定します
+            col_config = {
+                "馬番": st.column_config.Column(width=40),
+                "馬名": st.column_config.Column(width=150),
+                "MS": st.column_config.Column(width=60),
+                " ": st.column_config.Column(width=40),  # MS順の列
+                "MSPF": st.column_config.Column(width=60),
+                "  ": st.column_config.Column(width=40), # MSPF順の列
+                "総合": st.column_config.Column(width=60),
+            }
+            
+            st.dataframe(
+                styled_df, 
+                height=750, 
+                use_container_width=True, 
+                hide_index=True,
+                column_config=col_config  # ← ここで設定を反映
+            )
 
             # --- ここから期待値表の表示コード ---
             st.divider()
@@ -306,6 +323,7 @@ if df_raw is not None:
 else:
 
     st.error("データが見つかりません。")
+
 
 
 
