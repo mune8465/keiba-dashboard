@@ -9,7 +9,7 @@ st.set_page_config(page_title="競馬分析ダッシュボード", layout="wide"
 
 # ==========================================
 # ★ここを表示したい日付に書き換えてください
-DATE_VAL = "20260110" 
+DATE_VAL = "20260111" 
 # ==========================================
 
 # 場所マスター
@@ -129,31 +129,63 @@ def get_combined_rank(ms_val, mspf_val, is_special=False):
     return rank
 
 
+
 # --- データ読込 ---
 @st.cache_data
 def load_and_merge_data(date):
-    base_dir = "data/"
+    base_dir = "data/output/"
     try:
-        df_mspf = pd.read_csv(os.path.join(base_dir, f"MSPF_expect_results_{date}.csv"))
-        df_ms = pd.read_csv(os.path.join(base_dir, f"MS_index_results_{date}.csv"))
-        df_mst = pd.read_csv(os.path.join(base_dir, f"MST_index_results_{date}.csv"))
+        # 1. 既存データの読み込み
+        df_mspf_ex = pd.read_csv(os.path.join(base_dir, f"MSPF_expect_results_{date}.csv"))
+        df_ms_res = pd.read_csv(os.path.join(base_dir, f"MS_index_results_{date}.csv"))
+        df_mst_res = pd.read_csv(os.path.join(base_dir, f"MST_index_results_{date}.csv"))
         
-        # MSの判定列を特定 (総合判定:8, コース:12, レベル:15, 不利:18, 条件:21, 重賞:23, 血統:25)
-        ms_cols = {
-            df_ms.columns[8]: '総合判定_MS',
-            df_ms.columns[12]: 'CS_MS', df_ms.columns[15]: 'LV_MS',
-            df_ms.columns[18]: 'DA_MS', df_ms.columns[21]: 'CD_MS',
-            df_ms.columns[23]: 'GR_MS', df_ms.columns[25]: 'BL_MS',
-            'MS_index': 'MS_index_MS'
-        }
-        df_ms_sub = df_ms[['場所', 'レース', '馬番'] + list(ms_cols.keys())].rename(columns=ms_cols)
+        # 【重要】既存データの型を確実に数値に変換（不一致防止）
+        for target_df in [df_mspf_ex, df_ms_res, df_mst_res]:
+            target_df['場所'] = target_df['場所'].astype(int)
+            target_df['馬番'] = target_df['馬番'].astype(int)
 
-        df = df_mspf.merge(df_ms_sub, on=['場所', 'レース', '馬番'], how='left')
-        df = df.merge(df_mst[['場所', 'レース', '馬番', 'MS_index']], on=['場所', 'レース', '馬番'], how='left')
+        # --- ID形式のCSV読み込み内部関数 ---
+        def load_id_csv(file_name, val_col_name):
+            path = os.path.join(base_dir, file_name)
+            if not os.path.exists(path):
+                return pd.DataFrame()
+            
+            # ヘッダーなしCSVを読み込み
+            tmp = pd.read_csv(path, header=None, names=['ID', val_col_name], dtype={'ID': str})
+            
+            # IDからキーを抽出
+            # IDから直接文字を抜き出す
+            tmp['場所'] = tmp['ID'].str[8:10].astype(int)
+            tmp['レース'] = tmp['ID'].str[8:10] + "_" + tmp['ID'].str[14:16].astype(str).str.lstrip('0').str.zfill(1) # 10以下を1桁にする
+            tmp['馬番'] = tmp['ID'].str[16:18].astype(int)
+            
+            
+            return tmp[['場所', 'レース', '馬番', val_col_name]]
+
+        # 2. 新しい MS_日付.csv / MSPF_日付.csv を読み込む
+        df_new_ms = load_id_csv(f"MS_{date}.csv", "MS_val")
+        df_new_mspf = load_id_csv(f"MSPF_{date}.csv", "MSPF_val")
+
+        # 3. 既存データの準備（総合判定などを結合用にする）
+        ms_cols = {df_ms_res.columns[8]: '総合判定_MS', 'MS_index': 'MS_index_MS'}
+        df_ms_sub = df_ms_res[['場所', 'レース', '馬番'] + list(ms_cols.keys())].rename(columns=ms_cols)
+
+        # 4. ベースデータに既存結果を結合
+        df = df_mspf_ex.merge(df_ms_sub, on=['場所', 'レース', '馬番'], how='left')
+        df = df.merge(df_mst_res[['場所', 'レース', '馬番', 'MS_index']], on=['場所', 'レース', '馬番'], how='left')
         df = df.rename(columns={'MS_index': 'MST_index'})
+        
+        # 5. 今回の新しい数値を結合（型の不一致を排除して結合）
+        if not df_new_ms.empty:
+            df = df.merge(df_new_ms, on=['場所', 'レース', '馬番'], how='left')
+        if not df_new_mspf.empty:
+            df = df.merge(df_new_mspf, on=['場所', 'レース', '馬番'], how='left')
+            
         return df
+
     except Exception as e:
-        st.error(f"データロードエラー: {e}")
+        st.error(f"データの読み込み中にエラーが発生しました: {e}")
         return None
 
 
@@ -161,7 +193,7 @@ def load_and_merge_data(date):
 try:
     dt = datetime.strptime(DATE_VAL, '%Y%m%d')
     DATE_STR = dt.strftime('%Y年%m月%d日')
-except:
+except Exception:
     DATE_STR = DATE_VAL
 
 # タイトルと日付の表示
@@ -171,6 +203,7 @@ st.divider()
 
 # データロード
 df_raw = load_and_merge_data(DATE_VAL)
+
 
 
 if df_raw is not None:
@@ -190,53 +223,54 @@ if df_raw is not None:
             st.subheader(f"🚩 {selected_place} {selected_race_name}")
             df_race = df_raw[(df_raw['場所名'] == selected_place) & (df_raw['レース'] == current_race_code)].copy()
 
-            # 1. 順位計算
-            for col, new_col in [('MS_index_MS', 'MS順'), ('MSPF_expect', 'MSPF順'), ('MST_index', 'MST順')]:
+            # 1. 順位計算（新しく読み込んだ MS_val, MSPF_val を使う）
+            rank_targets = [
+                ('MS_val', 'MS順'), ('MSPF_val', 'MSPF順'), 
+                ('MS_index_MS', 'nMS順'), ('MSPF_expect', 'nMSPF順'), ('MST_index', 'nMST順')
+            ]
+            for col, new_col in rank_targets:
                 if col in df_race.columns:
                     df_race[new_col] = df_race[col].rank(ascending=False, method='min').fillna(99).astype(int)
 
-            # 2. 全列合算判定 (MS + MSPF)
+            # 2. 全列合算判定
             df_race['AL'] = df_race.apply(lambda r: get_combined_rank(r.get('総合判定_MS'), r.get('総合判定')), axis=1)
-            df_race['CS'] = df_race.apply(lambda r: get_combined_rank(r.get('CS_MS'), r.get('コース(判定)')), axis=1)
-            df_race['LV'] = df_race.apply(lambda r: get_combined_rank(r.get('LV_MS'), r.get('レベル(判定)')), axis=1)
-            df_race['DA'] = df_race.apply(lambda r: get_combined_rank(r.get('DA_MS'), r.get('不利(複合判定)')), axis=1)
-            df_race['CD'] = df_race.apply(lambda r: get_combined_rank(r.get('CD_MS'), r.get('条件(複合判定)'), True), axis=1)
-            df_race['GR'] = df_race.apply(lambda r: get_combined_rank(r.get('GR_MS'), r.get('重賞(判定)'), True), axis=1)
-            df_race['BL'] = df_race.apply(lambda r: get_combined_rank(r.get('BL_MS'), r.get('血統(判定)')), axis=1)
 
-            # 3. 表示整形
+            # 3. 表示整形（★ここが重要：MS_val を MS という名前に変換する）
             display_cols_map = {
-                '馬番': '馬番', '馬名': '馬名', 'MS_index_MS': 'MS', 'MS順': ' ', 
-                'MSPF_expect': 'MSPF', 'MSPF順': '  ', 'MST_index': 'MST', 'MST順': '   ',
-                'AL': '総合', 'CS': 'CS', 'LV': 'LV', 'DA': 'DA', 'CD': 'CD', 'GR': 'GR', 'BL': 'BL'
+                '馬番': '馬番', '馬名': '馬名', 
+                'MS_val': 'MS',           # ← 読み込んだ MS_val を表示名 MS に
+                'MS順': ' ', 
+                'MSPF_val': 'MSPF',       # ← 読み込んだ MSPF_val を表示名 MSPF に
+                'MSPF順': '  ',
+                'MS_index_MS': 'newMS', 'nMS順': '   ', 
+                'MSPF_expect': 'newMSPF', 'nMSPF順': '    ', 
+                'MST_index': 'newMST', 'nMST順': '     ',
+                'AL': '総合'
             }
-            # --- 修正：df_raceに存在する列だけを抽出するようにガードを入れる ---
+            
             available_cols = [c for c in display_cols_map.keys() if c in df_race.columns]
             df_display = df_race[available_cols].rename(columns=display_cols_map)
 
-            # 数値・判定クレンジング
-            # --- 修正：None(評価不能)はハイフン、0.0以上の数値は表示 ---
-            for c in ['MS', 'MSPF', 'MST']:
-                # 一度数値型に変換（Noneや空文字はNaNになる）
-                df_display[c] = pd.to_numeric(df_display[c], errors='coerce')
-    
-                # 判定：NaN(元None)や 1.0(対象外) はハイフン、それ以外（0.0含む）は表示
-                df_display[c] = df_display[c].apply(
-                    lambda x: f"{x:.1f}" if pd.notnull(x) and x != 1.0 else "-"
-                )
+            # 4. 数値クレンジング（MS と MSPF も対象に含める）
+            target_num_cols = ['MS', 'MSPF', 'newMS', 'newMSPF', 'newMST']
+            for c in target_num_cols:
+                if c in df_display.columns:
+                    df_display[c] = pd.to_numeric(df_display[c], errors='coerce')
+                    df_display[c] = df_display[c].apply(
+                        lambda x: f"{x:.1f}" if pd.notnull(x) else "-"
+                    )
             
-            # スタイリング
-            judge_cols = ['総合', 'CS', 'LV', 'DA', 'CD', 'GR', 'BL']
-            rank_cols = [' ', '  ', '   ']
+            # 5. スタイリング
+            rank_cols = [' ', '  ', '   ', '    ', '     ']
             styled_df = df_display.style\
-                .map(color_rank, subset=judge_cols)\
-                .map(color_order, subset=rank_cols)\
-                .map(color_ms_index, subset=['MS'])\
-                .map(color_mspf_expect, subset=['MSPF'])\
-                .map(color_mst_index, subset=['MST'])\
+                .map(color_rank, subset=['総合'])\
+                .map(color_order, subset=[c for c in rank_cols if c in df_display.columns])\
+                .map(color_ms_index, subset=[c for c in ['MS'] if c in df_display.columns])\
+                .map(color_mspf_expect, subset=[c for c in ['MSPF'] if c in df_display.columns])\
+                .set_properties(subset=[c for c in ['newMS', 'newMSPF', 'newMST'] if c in df_display.columns], 
+                               **{'background-color': '#F0F0F0', 'color': 'black'})\
                 .set_properties(subset=['総合'], **{'border-left': '3px solid #555', 'font-weight': 'bold'})
-
+            
             st.dataframe(styled_df, height=750, use_container_width=True, hide_index=True)
 else:
-
     st.error("データが見つかりません。")
