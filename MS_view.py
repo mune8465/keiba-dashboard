@@ -133,7 +133,7 @@ def get_combined_rank(ms_val, mspf_val, is_special=False):
 # --- データ読込 ---
 @st.cache_data
 def load_and_merge_data(date):
-    base_dir = "data/output/"
+    base_dir = "data/"
     try:
         # 1. 既存データの読み込み
         df_mspf_ex = pd.read_csv(os.path.join(base_dir, f"MSPF_expect_results_{date}.csv"))
@@ -273,4 +273,5 @@ if df_raw is not None:
             
             st.dataframe(styled_df, height=750, use_container_width=True, hide_index=True)
 else:
+
     st.error("データが見つかりません。")
