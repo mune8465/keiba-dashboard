@@ -271,15 +271,16 @@ if df_raw is not None:
                                **{'background-color': '#F0F0F0', 'color': 'black'})\
                 .set_properties(subset=['総合'], **{'border-left': '3px solid #555', 'font-weight': 'bold'})
             
-            # 各列の幅を個別に指定します
+            # 列の幅を個別に設定
             col_config = {
-                "馬番": st.column_config.Column(width=40),
-                "馬名": st.column_config.Column(width=150),
-                "MS": st.column_config.Column(width=60),
-                " ": st.column_config.Column(width=40),  # MS順の列
-                "MSPF": st.column_config.Column(width=60),
-                "  ": st.column_config.Column(width=40), # MSPF順の列
-                "総合": st.column_config.Column(width=60),
+                "馬番": st.column_config.Column(width=45),
+                "馬名": st.column_config.Column(width=180),
+                "MS": st.column_config.Column(width=65),
+                "MSPF": st.column_config.Column(width=65),
+                "総合": st.column_config.Column(width=65),
+                # 順位の列（スペースの数に注意）
+                " ": st.column_config.Column(width=40),
+                "  ": st.column_config.Column(width=40),
             }
             
             st.dataframe(
@@ -323,6 +324,7 @@ if df_raw is not None:
 else:
 
     st.error("データが見つかりません。")
+
 
 
 
