@@ -133,6 +133,29 @@ def get_combined_rank(ms_val, mspf_val, is_special=False):
 # --- データ読込 ---
 @st.cache_data
 def load_and_merge_data(date):
+    # 実行ファイルのディレクトリを取得して絶対パスを作成
+    current_dir = os.path.dirname(__file__)
+    base_dir = os.path.join(current_dir, "data")
+    
+    # 読み込むファイルのリスト
+    target_files = {
+        "MSPF期待値": f"MSPF_expect_results_{date}.csv",
+        "MS指数結果": f"MS_index_results_{date}.csv",
+        "MST指数結果": f"MST_index_results_{date}.csv",
+        "MS入力": f"MS_{date}.csv",
+        "MSPF入力": f"MSPF_{date}.csv"
+    }
+
+    # 事前にファイル存在チェック
+    missing_files = []
+    for label, f_name in target_files.items():
+        if not os.path.exists(os.path.join(base_dir, f_name)):
+            missing_files.append(f"{label} ({f_name})")
+    
+    if missing_files:
+        st.error(f"⚠️ 以下のファイルがGitHub上に見つかりません:\n\n" + "\n".join([f"- {m}" for m in missing_files]))
+        return None
+    
     base_dir = "data/"
     try:
         # 1. 既存データの読み込み
@@ -320,6 +343,7 @@ if df_raw is not None:
 else:
 
     st.error("データが見つかりません。")
+
 
 
 
