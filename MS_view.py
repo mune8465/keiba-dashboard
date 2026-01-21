@@ -295,11 +295,11 @@ if df_raw is not None:
             col_config = {
                 "馬番": st.column_config.Column(width=45),
                 "馬名": st.column_config.Column(width=180),
-                "MS": st.column_config.Column(width=65),
-                "MSPF": st.column_config.Column(width=65),
+                "MS": st.column_config.Column(width=45),
+                "MSPF": st.column_config.Column(width=45),
                 # 順位の列（スペースの数に注意）
-                " ": st.column_config.Column(width=40),
-                "  ": st.column_config.Column(width=40),
+                " ": st.column_config.Column(width=30),
+                "  ": st.column_config.Column(width=30),
             }
             
             st.dataframe(
@@ -343,6 +343,7 @@ if df_raw is not None:
 else:
 
     st.error("データが見つかりません。")
+
 
 
 
