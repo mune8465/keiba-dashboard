@@ -244,8 +244,7 @@ if df_raw is not None:
                 'MSPF順': '  ',
                 'MS_index_MS': 'newMS', 'nMS順': '   ', 
                 'MSPF_expect': 'newMSPF', 'nMSPF順': '    ', 
-                'MST_index': 'newMST', 'nMST順': '     ',
-                'AL': '総合'
+                'MST_index': 'newMST', 'nMST順': '     '
             }
             
             available_cols = [c for c in display_cols_map.keys() if c in df_race.columns]
@@ -263,13 +262,11 @@ if df_raw is not None:
             # 5. スタイリング
             rank_cols = [' ', '  ', '   ', '    ', '     ']
             styled_df = df_display.style\
-                .map(color_rank, subset=['総合'])\
                 .map(color_order, subset=[c for c in rank_cols if c in df_display.columns])\
                 .map(color_ms_index, subset=[c for c in ['MS'] if c in df_display.columns])\
                 .map(color_mspf_expect, subset=[c for c in ['MSPF'] if c in df_display.columns])\
                 .set_properties(subset=[c for c in ['newMS', 'newMSPF', 'newMST'] if c in df_display.columns], 
                                **{'background-color': '#F0F0F0', 'color': 'black'})\
-                .set_properties(subset=['総合'], **{'border-left': '3px solid #555', 'font-weight': 'bold'})
             
             # 列の幅を個別に設定
             col_config = {
@@ -277,7 +274,6 @@ if df_raw is not None:
                 "馬名": st.column_config.Column(width=180),
                 "MS": st.column_config.Column(width=65),
                 "MSPF": st.column_config.Column(width=65),
-                "総合": st.column_config.Column(width=65),
                 # 順位の列（スペースの数に注意）
                 " ": st.column_config.Column(width=40),
                 "  ": st.column_config.Column(width=40),
@@ -324,6 +320,7 @@ if df_raw is not None:
 else:
 
     st.error("データが見つかりません。")
+
 
 
 
