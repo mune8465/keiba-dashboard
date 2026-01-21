@@ -134,58 +134,82 @@ def get_combined_rank(ms_val, mspf_val, is_special=False):
 @st.cache_data
 def load_and_merge_data(date):
     base_dir = "data/"
-    try:
-        # 1. 既存データの読み込み
-        df_mspf_ex = pd.read_csv(os.path.join(base_dir, f"MSPF_expect_results_{date}.csv"))
-        df_ms_res = pd.read_csv(os.path.join(base_dir, f"MS_index_results_{date}.csv"))
-        df_mst_res = pd.read_csv(os.path.join(base_dir, f"MST_index_results_{date}.csv"))
-        
-        # 【重要】既存データの型を確実に数値に変換（不一致防止）
-        for target_df in [df_mspf_ex, df_ms_res, df_mst_res]:
-            target_df['場所'] = target_df['場所'].astype(int)
-            target_df['馬番'] = target_df['馬番'].astype(int)
+    
+    # --- 内部関数: ファイルの存在を確認して読み込む ---
+    def safe_read_csv(file_name):
+        path = os.path.join(base_dir, file_name)
+        if os.path.exists(path):
+            try:
+                tmp = pd.read_csv(path)
+                # 型変換を共通化
+                if '場所' in tmp.columns: tmp['場所'] = tmp['場所'].astype(int)
+                if '馬番' in tmp.columns: tmp['馬番'] = tmp['馬番'].astype(int)
+                return tmp
+            except Exception as e:
+                st.warning(f"ファイル読み込みエラー ({file_name}): {e}")
+        return pd.DataFrame() # なければ空のDFを返す
 
-        # --- ID形式のCSV読み込み内部関数 ---
-        def load_id_csv(file_name, val_col_name):
-            path = os.path.join(base_dir, file_name)
-            if not os.path.exists(path):
-                return pd.DataFrame()
-            
-            # ヘッダーなしCSVを読み込み
+    # --- 内部関数: ID形式のCSV読み込み ---
+    def load_id_csv(file_name, val_col_name):
+        path = os.path.join(base_dir, file_name)
+        if not os.path.exists(path):
+            return pd.DataFrame()
+        try:
             tmp = pd.read_csv(path, header=None, names=['ID', val_col_name], dtype={'ID': str})
-            
-            # IDからキーを抽出
-            # IDから直接文字を抜き出す
             tmp['場所'] = tmp['ID'].str[8:10].astype(int)
-            tmp['レース'] = tmp['ID'].str[8:10] + "_" + tmp['ID'].str[14:16].astype(str).str.lstrip('0').str.zfill(1) # 10以下を1桁にする
+            # レース番号の0埋め解除
+            race_num = tmp['ID'].str[14:16].astype(int).astype(str)
+            tmp['レース'] = tmp['ID'].str[8:10] + "_" + race_num
             tmp['馬番'] = tmp['ID'].str[16:18].astype(int)
-            
-            
             return tmp[['場所', 'レース', '馬番', val_col_name]]
+        except:
+            return pd.DataFrame()
 
-        # 2. 新しい MS_日付.csv / MSPF_日付.csv を読み込む
+    try:
+        # 1. 各ファイルの読み込み（なければ空DFが入る）
+        df_mspf_ex = safe_read_csv(f"MSPF_expect_results_{date}.csv")
+        df_ms_res = safe_read_csv(f"MS_index_results_{date}.csv")
+        df_mst_res = safe_read_csv(f"MST_index_results_{date}.csv")
+        
+        # 2. ベースデータの決定
+        # MSPF結果をベースにするが、なければMS結果、それもなければNoneを返す
+        if not df_mspf_ex.empty:
+            df = df_mspf_ex.copy()
+        elif not df_ms_res.empty:
+            df = df_ms_res.copy()
+        else:
+            return None # 基礎データがどちらもなければ終了
+
+        # 3. 既存結果の結合 (MS_index_results)
+        if not df_ms_res.empty:
+            # カラム名が動的な場合(8番目)を考慮
+            ms_rank_col = df_ms_res.columns[8] if len(df_ms_res.columns) > 8 else None
+            if ms_rank_col and ms_rank_col not in df.columns:
+                ms_sub = df_ms_res[['場所', 'レース', '馬番', ms_rank_col, 'MS_index']].rename(
+                    columns={ms_rank_col: '総合判定_MS', 'MS_index': 'MS_index_MS'}
+                )
+                df = df.merge(ms_sub, on=['場所', 'レース', '馬番'], how='left')
+
+        # 4. MSTデータの結合
+        if not df_mst_res.empty:
+            mst_sub = df_mst_res[['場所', 'レース', '馬番', 'MS_index']].rename(columns={'MS_index': 'MST_index'})
+            df = df.merge(mst_sub, on=['場所', 'レース', '馬番'], how='left')
+        else:
+            df['MST_index'] = np.nan # 列だけ作っておく
+
+        # 5. ID形式の新しい数値を結合
         df_new_ms = load_id_csv(f"MS_{date}.csv", "MS_val")
         df_new_mspf = load_id_csv(f"MSPF_{date}.csv", "MSPF_val")
 
-        # 3. 既存データの準備（総合判定などを結合用にする）
-        ms_cols = {df_ms_res.columns[8]: '総合判定_MS', 'MS_index': 'MS_index_MS'}
-        df_ms_sub = df_ms_res[['場所', 'レース', '馬番'] + list(ms_cols.keys())].rename(columns=ms_cols)
-
-        # 4. ベースデータに既存結果を結合
-        df = df_mspf_ex.merge(df_ms_sub, on=['場所', 'レース', '馬番'], how='left')
-        df = df.merge(df_mst_res[['場所', 'レース', '馬番', 'MS_index']], on=['場所', 'レース', '馬番'], how='left')
-        df = df.rename(columns={'MS_index': 'MST_index'})
-        
-        # 5. 今回の新しい数値を結合（型の不一致を排除して結合）
         if not df_new_ms.empty:
             df = df.merge(df_new_ms, on=['場所', 'レース', '馬番'], how='left')
         if not df_new_mspf.empty:
             df = df.merge(df_new_mspf, on=['場所', 'レース', '馬番'], how='left')
-            
+
         return df
 
     except Exception as e:
-        st.error(f"データの読み込み中にエラーが発生しました: {e}")
+        st.error(f"結合処理中にエラーが発生しました: {e}")
         return None
 
 
@@ -317,6 +341,7 @@ if df_raw is not None:
         st.warning("選択された場所またはレースのデータが存在しません。") # 追加
 else:
     st.error("データが見つかりません。ファイル名や日付設定を確認してください。")
+
 
 
 
