@@ -166,40 +166,36 @@ def load_and_merge_data(date):
             return pd.DataFrame()
 
     try:
-        # 1. 各ファイルの読み込み（なければ空DFが入る）
-        df_mspf_ex = safe_read_csv(f"MSPF_expect_results_{date}.csv")
-        df_ms_res = safe_read_csv(f"MS_index_results_{date}.csv")
-        df_mst_res = safe_read_csv(f"MST_index_results_{date}.csv")
+        # 1. 各ファイルの読み込み（重複を排除して読み込む）
+        df_mspf_ex = safe_read_csv(f"MSPF_expect_results_{date}.csv").drop_duplicates(subset=['場所', 'レース', '馬番'])
+        df_ms_res = safe_read_csv(f"MS_index_results_{date}.csv").drop_duplicates(subset=['場所', 'レース', '馬番'])
+        df_mst_res = safe_read_csv(f"MST_index_results_{date}.csv").drop_duplicates(subset=['場所', 'レース', '馬番'])
         
         # 2. ベースデータの決定
-        # MSPF結果をベースにするが、なければMS結果、それもなければNoneを返す
         if not df_mspf_ex.empty:
             df = df_mspf_ex.copy()
         elif not df_ms_res.empty:
             df = df_ms_res.copy()
         else:
-            return None # 基礎データがどちらもなければ終了
+            return None
 
-        # 3. 既存結果の結合 (MS_index_results)
+        # --- 以下、結合処理 ---
+        # 結合する側のデータも念のため drop_duplicates しておくと安全です
         if not df_ms_res.empty:
-            # カラム名が動的な場合(8番目)を考慮
             ms_rank_col = df_ms_res.columns[8] if len(df_ms_res.columns) > 8 else None
-            if ms_rank_col and ms_rank_col not in df.columns:
+            if ms_rank_col:
                 ms_sub = df_ms_res[['場所', 'レース', '馬番', ms_rank_col, 'MS_index']].rename(
                     columns={ms_rank_col: '総合判定_MS', 'MS_index': 'MS_index_MS'}
                 )
                 df = df.merge(ms_sub, on=['場所', 'レース', '馬番'], how='left')
 
-        # 4. MSTデータの結合
         if not df_mst_res.empty:
             mst_sub = df_mst_res[['場所', 'レース', '馬番', 'MS_index']].rename(columns={'MS_index': 'MST_index'})
             df = df.merge(mst_sub, on=['場所', 'レース', '馬番'], how='left')
-        else:
-            df['MST_index'] = np.nan # 列だけ作っておく
 
-        # 5. ID形式の新しい数値を結合
-        df_new_ms = load_id_csv(f"MS_{date}.csv", "MS_val")
-        df_new_mspf = load_id_csv(f"MSPF_{date}.csv", "MSPF_val")
+        # 3. ID形式の新しい数値も重複排除して結合
+        df_new_ms = load_id_csv(f"MS_{date}.csv", "MS_val").drop_duplicates(subset=['場所', 'レース', '馬番'])
+        df_new_mspf = load_id_csv(f"MSPF_{date}.csv", "MSPF_val").drop_duplicates(subset=['場所', 'レース', '馬番'])
 
         if not df_new_ms.empty:
             df = df.merge(df_new_ms, on=['場所', 'レース', '馬番'], how='left')
@@ -341,6 +337,7 @@ if df_raw is not None:
         st.warning("選択された場所またはレースのデータが存在しません。") # 追加
 else:
     st.error("データが見つかりません。ファイル名や日付設定を確認してください。")
+
 
 
 
