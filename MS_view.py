@@ -133,8 +133,6 @@ def get_combined_rank(ms_val, mspf_val, is_special=False):
 # --- データ読込 ---
 @st.cache_data
 def load_and_merge_data(date):
-
-    
     base_dir = "data/"
     try:
         # 1. 既存データの読み込み
@@ -183,9 +181,6 @@ def load_and_merge_data(date):
             df = df.merge(df_new_ms, on=['場所', 'レース', '馬番'], how='left')
         if not df_new_mspf.empty:
             df = df.merge(df_new_mspf, on=['場所', 'レース', '馬番'], how='left')
-
-        # --- 重複を排除するコードを追加 ---
-        df = df.drop_duplicates(subset=['場所', 'レース', '馬番'], keep='first')
             
         return df
 
@@ -325,6 +320,7 @@ if df_raw is not None:
 else:
 
     st.error("データが見つかりません。")
+
 
 
 
