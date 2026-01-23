@@ -343,6 +343,11 @@ if df_raw is not None:
             # 2カラムで横並びに表示
             col_shiba, col_dirt = st.columns(2)
             
+            # --- 芝の表示を追加 ---
+            with col_shiba:
+                st.markdown("**🍀 MS 芝**")
+                st.table(pd.DataFrame(data_shiba))
+                
             with col_dirt:
                 st.markdown("**🏜️ MS ダート**")
                 st.table(pd.DataFrame(data_dirt))
@@ -350,6 +355,7 @@ if df_raw is not None:
         st.warning("選択された場所またはレースのデータが存在しません。") # 追加
 else:
     st.error("データが見つかりません。ファイル名や日付設定を確認してください。")
+
 
 
 
