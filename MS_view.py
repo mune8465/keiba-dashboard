@@ -9,7 +9,7 @@ st.set_page_config(page_title="競馬分析ダッシュボード", layout="wide"
 
 # ==========================================
 # ★ここを表示したい日付に書き換えてください
-DATE_VAL = "20260118" 
+DATE_VAL = "20260124" 
 # ==========================================
 
 # 場所マスター
@@ -283,9 +283,10 @@ if df_raw is not None:
             rank_cols = [' ', '  ', '   ', '    ', '     ']
             styled_df = df_display.style\
                 .map(color_order, subset=[c for c in rank_cols if c in df_display.columns])\
-                .map(color_ms_index, subset=[c for c in ['MS'] if c in df_display.columns])\
-                .map(color_mspf_expect, subset=[c for c in ['MSPF'] if c in df_display.columns])\
-                .set_properties(subset=[c for c in ['newMS', 'newMSPF', 'newMST'] if c in df_display.columns], 
+                .map(color_ms_index, subset=[c for c in ['newMS'] if c in df_display.columns])\
+                .map(color_mspf_expect, subset=[c for c in ['newMSPF'] if c in df_display.columns])\
+                .map(color_mst_index, subset=[c for c in ['newMST'] if c in df_display.columns])\
+                .set_properties(subset=[c for c in ['MS', 'MSPF'] if c in df_display.columns], 
                                **{'background-color': '#F0F0F0', 'color': 'black'})\
             
             # 列の幅を個別に設定
@@ -337,6 +338,7 @@ if df_raw is not None:
         st.warning("選択された場所またはレースのデータが存在しません。") # 追加
 else:
     st.error("データが見つかりません。ファイル名や日付設定を確認してください。")
+
 
 
 
