@@ -134,6 +134,13 @@ def get_combined_rank(ms_val, mspf_val, is_special=False):
 @st.cache_data
 def load_and_merge_data(date):
     base_dir = "data/"
+
+    # --- デバッグ用：ファイル一覧を画面に出して確認する ---
+    if os.path.exists(base_dir):
+        all_files = os.listdir(base_dir)
+        # st.sidebar.write(f"フォルダ内のファイル一覧: {all_files}") # ←これを一時的に有効にする
+    else:
+        st.error(f"フォルダ '{base_dir}' が見つかりません。")
     
     # --- 内部関数: ファイルの存在を確認して読み込む ---
     def safe_read_csv(file_name):
@@ -343,6 +350,7 @@ if df_raw is not None:
         st.warning("選択された場所またはレースのデータが存在しません。") # 追加
 else:
     st.error("データが見つかりません。ファイル名や日付設定を確認してください。")
+
 
 
 
