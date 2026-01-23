@@ -289,23 +289,28 @@ if df_raw is not None:
                 .set_properties(subset=[c for c in ['MS', 'MSPF'] if c in df_display.columns], 
                                **{'background-color': '#F0F0F0', 'color': 'black'})\
             
-            # 列の幅を個別に設定
+            # 列の幅を個別に設定（見やすさ重視）
             col_config = {
                 "馬番": st.column_config.Column(width=45),
-                "馬名": st.column_config.Column(width=180),
-                "MS": st.column_config.Column(width=45),
-                "MSPF": st.column_config.Column(width=45),
-                # 順位の列（スペースの数に注意）
-                " ": st.column_config.Column(width=30),
-                "  ": st.column_config.Column(width=30),
+                "馬名": st.column_config.Column(width=200),
+                "MS": st.column_config.Column(width=50),
+                " ": st.column_config.Column(width=35), # MS順
+                "MSPF": st.column_config.Column(width=55),
+                "  ": st.column_config.Column(width=35), # MSPF順
+                "newMS": st.column_config.Column(width=60),
+                "   ": st.column_config.Column(width=35), # nMS順
+                "newMSPF": st.column_config.Column(width=70),
+                "    ": st.column_config.Column(width=35), # nMSPF順
+                "newMST": st.column_config.Column(width=65),
+                "     ": st.column_config.Column(width=35), # nMST順
             }
             
             st.dataframe(
                 styled_df, 
                 height=750, 
-                use_container_width=True, 
+                use_container_width=False, 
                 hide_index=True,
-                column_config=col_config  # ← ここで設定を反映
+                column_config=col_config
             )
 
             # --- ここから期待値表の表示コード ---
@@ -338,6 +343,7 @@ if df_raw is not None:
         st.warning("選択された場所またはレースのデータが存在しません。") # 追加
 else:
     st.error("データが見つかりません。ファイル名や日付設定を確認してください。")
+
 
 
 
